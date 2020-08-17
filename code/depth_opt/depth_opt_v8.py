@@ -1,8 +1,6 @@
 import sys
 sys.path.append('../')
-from create_expressions import LogicTreeTrainer, LogicTree, LogicNode, TrueNode
-from create_expressions import FalseNode, PNode, QNode, RNode, AndNode, OrNode
-from create_expressions import ImplicationNode, NotNode
+from create_expressions import *
 from datetime import datetime
 import itertools
 import matplotlib.pyplot as plt
@@ -88,7 +86,7 @@ v = 8
 path = '../../data/metrics/metric' + str(v) + '/'
 
 
-prep = False
+prep = 1
 if prep:
     print("Prepping data")
 
@@ -285,7 +283,7 @@ def fit_metric(X, Y, iters=1000, rate=1e-7, smart_steps=False, seed=None, verbos
 
 
 
-        if (abs(new_obj - init_obj) < 0.1) or rate < rate_lb:
+        if (abs(new_obj - init_obj) < 1) or rate < rate_lb:
             if verbose:
                 if abs(new_obj - init_obj) < 2:
                     print(i, init_obj, new_obj, new_obj - init_obj, rate)
@@ -301,7 +299,7 @@ def fit_metric(X, Y, iters=1000, rate=1e-7, smart_steps=False, seed=None, verbos
     return M
 
 
-iters = 500
+iters = 41
 
 filename = 'metric' + str(v) + '_full_i' + str(iters)
 
@@ -310,7 +308,7 @@ training_dump_filename = path+'m' + str(v) + '_i' + str(iters) + '_train_data.pk
 
 
 
-fit = False
+fit = 1
 if fit:
 
     print("Dumping data")
@@ -331,7 +329,7 @@ if fit:
 
 # TEST METRIC
 
-eval = True
+eval = 1
 if eval:
 
     print("Evaluating")

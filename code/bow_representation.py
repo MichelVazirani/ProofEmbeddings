@@ -2,13 +2,12 @@
 ===================
 bow_representation.py
 ===================
+Author: Michel Vazirani
 Create bag-of-words (bow) bigram/unigram representation of logic expressions
 """
 
 import sys
-from create_expressions import LogicTreeTrainer, LogicTree, LogicNode, TrueNode
-from create_expressions import FalseNode, PNode, QNode, RNode, AndNode, OrNode
-from create_expressions import ImplicationNode, NotNode
+from create_expressions import *
 import pickle as pkl
 import string
 import random
@@ -20,6 +19,7 @@ import copy
 
 
 
+
 class Bag_of_words():
 
     def __init__(self, source=None, out=None):
@@ -27,7 +27,7 @@ class Bag_of_words():
         all_symbols = ['p', 'q', 'r']
         all_symbols.append('T')
         all_symbols.append('F')
-        all_symbols.extend(['∧', '∨', '→', '~'])
+        all_symbols.extend(['∧','∨','→','↔','~'])
         all_symbols.extend(['(', ')'])
         all_symbols.extend(['STA', 'EOS'])
 
@@ -43,26 +43,29 @@ class Bag_of_words():
         for symbol1 in all_symbols:
             for symbol2 in all_symbols:
                 for symbol3 in all_symbols:
-                    self.trigrams[(symbol1, symbol2, symbol3)] = len(self.trigrams)
+                    self.trigrams[(symbol1,symbol2,symbol3)] = \
+                                            len(self.trigrams)
 
             self.trigrams[('STA', symbol1, None)] = len(self.trigrams)
             self.trigrams[(None, symbol1, 'EOS')] = len(self.trigrams)
 
 
         if source == None:
-            self.trainer = pkl.load(open('../data/trainer.pkl', 'rb'))
+            source_path = '../data/logic_proof_datasets/trainer.pkl'
+
         else:
             self.source = source
             source_path = '../data/logic_proof_datasets/' + source + '.pkl'
-            self.trainer = pkl.load(open(source_path, 'rb'))
+
+        self.trainer = pkl.load(open(source_path, 'rb'))
 
         if out == None:
-            self.dump_loc = '../data/'
+            self.dump_loc = '../data/bigram_datasets/'
         else:
             self.dump_loc = out
 
         self.dataset = self.trainer.trees
-        print(len(self.dataset))
+        print('Number of expressions:', len(self.dataset))
         self.check_valid_dataset()
 
     def check_valid_dataset(self):
@@ -123,8 +126,7 @@ class Bag_of_words():
         else:
             return self.bow_unigram(expr) + self.bow_bigram(expr) + self.bow_trigram(expr)
 
-    def bow_representation_bigram_dataset(self, dump=None):
-        print("creating", self.source, "bigram dataset")
+    def bow_representation_bigram_dataset(self):
         bow_dataset = {}
         for tree_id, trees in self.dataset.items():
             tree_bow = self.bow_representation_expr(trees[0].parse_tree())
@@ -137,36 +139,145 @@ class Bag_of_words():
         print("dumping")
         pkl.dump(bow_dataset, open(self.dump_loc + '_bigram_dataset.pkl', 'wb'))
 
-    def bow_representation_trigram_dataset(self, percentage):
+    def bow_representation_trigram_dataset(self):
         bow_dataset = {}
-        for class_id, equiv_class in self.dataset.items():
-            if(random.randint(1,100) <= percentage):
-                bow_equiv_class = []
-                for expr in equiv_class:
-                    bow_equiv_class.append((expr[0], expr[1], expr[2], self.bow_representation_expr(expr[2], trigrams=True)))
-                bow_dataset[class_id] = bow_equiv_class
-                print(len(bow_dataset))
+        for tree_id, trees in self.dataset.items():
+            tree_bow = self.bow_representation_expr(trees[0].parse_tree(), trigrams=True)
+            tree_sequence = trees[1]
+            new_tree_sequence = []
+            for treetup in tree_sequence:
+                new_tree_sequence.append((treetup[0].parse_tree(), treetup[1], \
+                    self.bow_representation_expr(treetup[0].parse_tree(), trigrams=True)))
+            bow_dataset[tree_id] = ((trees[0].parse_tree(), tree_bow), new_tree_sequence)
         print("dumping")
-        pkl.dump(bow_dataset, open('../data/trigram_dataset.pkl', 'wb'))
+        pkl.dump(bow_dataset, open(self.dump_loc + '_trigram_dataset.pkl', 'wb'))
+
+
+    def dump_raw_matrix(self):
+        dataset = pkl.load(open(self.dump_loc + '_bigram_dataset.pkl', 'rb'))
+        matrix = []
+        for tup in dataset.values():
+            matrix.append(np.array(tup[0][1]))
+        matrix = np.array(matrix)
+        print("dumping", self.source, "matrix")
+        pkl.dump(matrix, open(self.dump_loc + \
+                '_matrix.pkl', 'wb'))
+        print(self.source, "matrix to .mat")
+        source_expr = copy.deepcopy(self.source)
+        source_expr = source_expr.replace('→', '->')
+        # source_expr = source_expr.replace('', '->')
+        scipy.io.savemat(self.dump_loc +\
+                '_matrix.mat', {source_expr+'_vectors':matrix})
+
+        cols = []
+        # for tup in dataset.values():
+        #     # if tup[1][-1][1] in [1,2,3,4,5,6,10,11,12,13,14,19,25,27,30]:
+        #     #     # IDENTITY
+        #     #     cols.append("b")
+        #     # if tup[1][-1][1] in [7,8,9]:
+        #     #     # TAUTOLOGY
+        #     #     cols.append("g")
+        #     # if tup[1][-1][1] in [16,17,21,22]:
+        #     #     # ASSOCIATIVITY
+        #     #     cols.append("r")
+        #     # if tup[1][-1][1] in [15,20]:
+        #         # COMMUTATIVITY
+        #         # cols.append("c")
+        #     # if tup[1][-1][1] in [23,26]:
+        #     #     # LOGICAL EQUIVALENCE
+        #     #     cols.append("m")
+        #     # if tup[1][-1][1] in [18,24,28,29,0]:
+        #     #     # DEMORGAN
+        #     #     cols.append("k")
+        #
+        #     else:
+        #         # rest
+        #         cols.append("k")
+
+        colors = ['b','g','r','c','m','k']
+        for tup in dataset.values():
+            for i in range(1,7):
+                if len(tup[1]) == i:
+                    cols.append(colors[i-1])
+
+
+
+
+
+        scipy.io.savemat(self.dump_loc +\
+                '_cols.mat', {source_expr+'_cols':cols})
+
+
+    def bow_dataset_to_txt(self):
+        data = pkl.load(open('../data/bigram_dataset.pkl', 'rb'))
+        outfile = open('../data/text.txt', 'w', encoding='utf-8')
+        for first_tup in data.values():
+            for tup in first_tup[1]:
+                outfile.write(str((tup[0].parse_tree(), tup[1], tup[2])))
+            outfile.write("\n")
+        outfile.close()
+
+    def covariance(self):
+        try:
+            bows = pkl.load(open('../data/bigram_dataset.pkl', 'rb'))
+        except FileNotFoundError:
+            print("dataset not found, creating a new one")
+            self.bow_representation_bigram_dataset()
+            bows = pkl.load(open('../data/bigram_dataset.pkl', 'rb'))
+
+        bow_vecs = np.array([np.array(elem[0][1]) for elem in bows.values()])
+
+        print("calculating covariance")
+        covariance_matrix = np.cov(bow_vecs)
+
+        print("dumping")
+        pkl.dump(covariance_matrix, open('../data/cov_matrix.pkl', 'wb'))
+
 
     def bow_collisions(self, percentage=100, trigrams=False):
+        print("calculating collisions")
         if not trigrams:
             try:
-                bows = pkl.load(open('../data/bigram_dataset.pkl', 'rb'))
+                bows = pkl.load(open(self.dump_loc + '_bigram_dataset.pkl', 'rb'))
             except FileNotFoundError:
                 print("dataset not found, creating a new one")
-                self.bow_representation_bigram_dataset(percentage)
-                bows = pkl.load(open('../data/bigram_dataset.pkl', 'rb'))
+                self.bow_representation_bigram_dataset()
+                bows = pkl.load(open(self.dump_loc + '_bigram_dataset.pkl', 'rb'))
         else:
             try:
-                bows = pkl.load(open('../data/trigram_dataset.pkl', 'rb'))
+                bows = pkl.load(open(self.dump_loc + '_trigram_dataset.pkl', 'rb'))
             except FileNotFoundError:
-                self.bow_representation_trigram_dataset(percentage)
-                bows = pkl.load(open('../data/trigram_dataset.pkl', 'rb'))
+                print("dataset not found, creating a new one")
+                self.bow_representation_trigram_dataset()
+                bows = pkl.load(open(self.dump_loc + '_trigram_dataset.pkl', 'rb'))
 
         stats_file = open('../data/dataset_stats/stats.txt', 'w')
 
         bows_vals = list(bows.values())
+        all_exprs = [tup[0] for tup in bows_vals]
+
+        unique_exprs = {}
+        for tup in all_exprs:
+            if tup[0] not in unique_exprs:
+                unique_exprs[tup[0]] = tup[1]
+            else:
+                if unique_exprs[tup[0]] != tup[1]:
+                    print("MAJOR ERROR, SAME EXPR BIGRAMS NOT SAME")
+
+        unique_exprs_vecs = [(V, E) for E, V in unique_exprs.items()]
+        same_count = 0
+        total_count = 0
+        for i in range(len(unique_exprs_vecs)):
+            for j in range(i+1, len(unique_exprs_vecs)):
+                total_count += 1
+                if unique_exprs_vecs[i][0] == unique_exprs_vecs[j][0]:
+                    same_count += 1
+                    #print("Collision:", unique_exprs_vecs[i][1], unique_exprs_vecs[j][1])
+        print("Total collisions:", same_count)
+        print("Total pairs:", total_count)
+        print("Collision rate:", same_count/total_count)
+        return
+
         op_depths = [len(tup[1]) for tup in bows_vals]
         op_depths_dict = {depth:[] for depth in range(min(op_depths), max(op_depths)+1)}
 
@@ -205,18 +316,25 @@ class Bag_of_words():
 
 
 
-
 class BOW_exprs():
 
     def __init__(self, source=None, out=None):
+        # variables = set('pqr')
+        # variables.add("T")
+        # variables.add("F")
+        # operators = {'∧', '∨', '→', '~'}
+        # parenthesis = {'(', ')'}
+        # delimiters = {'STA', 'EOS'}
+        # all_symbols = variables.union(operators).union(parenthesis).union(delimiters)
+        #
+        # # print(list(all_symbols))
 
-
-        all_symbols = ['p', 'q', 'r']
+        all_symbols = ['p','q','r']
         all_symbols.append('T')
         all_symbols.append('F')
-        all_symbols.extend(['∧', '∨', '→', '~'])
-        all_symbols.extend(['(', ')'])
-        all_symbols.extend(['STA', 'EOS'])
+        all_symbols.extend(['∧','∨','→','↔','~'])
+        all_symbols.extend(['(',')'])
+        all_symbols.extend(['STA','EOS'])
 
 
 
@@ -287,26 +405,15 @@ class BOW_exprs():
 
 
 
-
-
-
-
-
-
-
-
 if __name__ == '__main__':
 
-    # starting_exprs = ['T', 'F', 'p', 'q', 'r', '~p', '~q', '~r', 'p→q']
-    # starting_exprs = ['p→q']
-    starting_exprs = ['T']
+    start_expr = 'T'
+    dump_loc = '../data/bigram_datasets/'+start_expr
+    bow = Bag_of_words('T', dump_loc)
+    print('Creating bigram dataset')
+    bow.bow_representation_bigram_dataset()
 
-    for expr in starting_exprs:
 
-        dump_loc = '../data/bigram_datasets/' + expr
-
-        bow = Bag_of_words(expr, dump_loc)
-        bow.bow_representation_bigram_dataset()
 
 
 
