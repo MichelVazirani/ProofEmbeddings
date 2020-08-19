@@ -170,7 +170,7 @@ class LogicParser(Parser):
     def andarg(self, p):
         return p[0]
 
-    @_('NOT term')
+    @_('NOT notarg')
     def notarg(self, p):
         return NotOp(p[0], p[1])
 
